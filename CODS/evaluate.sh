@@ -1,0 +1,1 @@
+python hf_train_bart.py --eval_batch_size=3 --test_file_path='./SUMMscreen/tmd/clean_data/test.json' --output_dir=save/longformer-full-genkpsum_11/outputs/tmd_inference_check_18 --load_path=save/longformer-full-genkpsum_11/outputs/epoch_18 > save/longformer-full-genkpsum_11/inference_mock_log_epoch18.txt --gen_keyphrase_summary

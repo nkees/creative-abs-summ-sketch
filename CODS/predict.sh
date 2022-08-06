@@ -1,0 +1,1 @@
+python predict.py --eval_batch_size=3 --test_file_path='./SUMMscreen/fd/clean_data/test_challenge.json' --output_dir=save/longformer-full-genkpsum_11/outputs/test_challenge_2 --load_path=save/longformer-full-genkpsum_11 > save/longformer-full-genkpsum_11/outputs/test_challenge_log2.txt --gen_keyphrase_summary
