@@ -7,14 +7,14 @@ from transformers import LEDForConditionalGeneration
 from hf_train_bart import Bart
 
 OUTPUT_MODELS = [
-    "epoch_11",
-    "epoch_13",
     "epoch_18",
+    "epoch_13",
+    "epoch_11",
     "epoch_6",
-    "epoch_2",
     "epoch_3",
-    "epoch_0",
-    "epoch_1"
+    "epoch_2",
+    "epoch_1",
+    "epoch_0"
 ]
 
 if __name__ == "__main__":

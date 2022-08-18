@@ -3,6 +3,8 @@ Copyright (c) 2021, salesforce.com, inc.
 All rights reserved.
 SPDX-License-Identifier: BSD-3-Clause
 For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+
+Adapted for CreativeSumm Workshop by @nkees from inovex GmbH.
 '''
 
 import json
@@ -141,7 +143,7 @@ def process_dialogue(dialogues_json_path):
 import time
 
 st = time.time()
-#process_dialogue("../SUMMscreen/fd/clean_data/train_0.json")
-#process_dialogue("../SUMMscreen/fd/clean_data/eval.json")
+process_dialogue("../SUMMscreen/fd/clean_data/train.json")
+process_dialogue("../SUMMscreen/fd/clean_data/eval.json")
 process_dialogue("../SUMMscreen/fd/clean_data/test.json")
 print(time.time() - st)

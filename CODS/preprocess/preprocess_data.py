@@ -3,6 +3,8 @@ Copyright (c) 2021, salesforce.com, inc.
 All rights reserved.
 SPDX-License-Identifier: BSD-3-Clause
 For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+
+Adapted for CreativeSumm Workshop by @nkees from inovex GmbH.
 '''
 
 import re
@@ -189,23 +191,18 @@ def main():
         os.makedirs(dump_data_dir)
     
     # get preprocessed data
-    #train_dataset = load_dialogue(os.path.join(data_dir, "train.json"))
-    # eval_dataset = load_dialogue(os.path.join(data_dir, "test.json"))
-    #test_dataset = load_dialogue(os.path.join(data_dir, "test_challenge.json"))
+    train_dataset = load_dialogue(os.path.join(data_dir, "train_plus_val.json"))
+    eval_dataset = load_dialogue(os.path.join(data_dir, "test.json"))
+    test_dataset = load_dialogue(os.path.join(data_dir, "test_challenge.json"))
 
-    with open(os.path.join(data_dir, "test_challenge.json"), 'r') as fin:
-        dialogues = json.load(fin)
-
-    # Clean data, remove empty lines and emojis
-    dialogues = clean_data(dialogues)
 
     # Snorkel labeling
-    #snorkel_train_data, snorkel_eval_data = get_snorkel_label(train_dataset, test_dataset) #, test_dataset)
+    snorkel_train_data, snorkel_eval_data = get_snorkel_label(train_dataset, eval_dataset) #, test_dataset)
 
     # Dump datasets
-    # dump_file(snorkel_train_data, os.path.join(dump_data_dir, "train.json"))
-    # dump_file(snorkel_eval_data, os.path.join(dump_data_dir, "test.json"))
-    dump_file(dialogues, os.path.join(dump_data_dir, "test_challenge.json"))
+    dump_file(snorkel_train_data, os.path.join(dump_data_dir, "train_plus_val.json"))
+    dump_file(snorkel_eval_data, os.path.join(dump_data_dir, "test.json"))
+    dump_file(test_dataset, os.path.join(dump_data_dir, "test_challenge.json"))
 
 
 if __name__ == '__main__':

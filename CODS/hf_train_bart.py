@@ -3,6 +3,8 @@ Copyright (c) 2021, salesforce.com, inc.
 All rights reserved.
 SPDX-License-Identifier: BSD-3-Clause
 For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+
+Adapted for CreativeSumm Workshop by @nkees from inovex GmbH.
 '''
 
 from transformers import BartForConditionalGeneration, BartTokenizer, AdamW, get_linear_schedule_with_warmup, \
@@ -533,8 +535,9 @@ class Bart(nn.Module):
             # Process target information
             if self.args.gen_keyphrase_summary:
                 string_global = []
-                max_nb_turns_kp = 20 
-                for ki, key_phrases in enumerate(e.key_phrases[:max_nb_turns_kp]):  # ToDo: investigate this
+                max_nb_turns_kp = 20
+                #non_zero_keyphrases = [key_phrases for key_phrases in e.key_phrases if len(key_phrases) > 0]
+                for ki, key_phrases in enumerate(e.key_phrases[:max_nb_turns_kp]):  # ToDo
                     if len(key_phrases) > 0:
                         string = [str(ki), get_intent(e.module_index[ki])] + key_phrases
                         string = " ".join(string)
@@ -543,15 +546,16 @@ class Bart(nn.Module):
                         string_global.append("{} {}".format(ki, "none"))
                 string_global = " ".join(string_global[:source_ids.count(config.bos_token_id)])
                 string_output = string_global + " {} ".format(SUM_TOKEN) + e.summary
+                print(f"{index} {e.ID}: {string_output}")
                 answer_tokens = self.tokenizer.tokenize(string_output)
                 if len(answer_tokens) > max_target_len: max_target_len = len(answer_tokens)
                 answer_tokens = answer_tokens[-self.args.target_max_len+1:] # -1 for <s> or </s>
-            
+
             else:
                 answer_tokens = self.tokenizer.tokenize(e.summary)
                 if len(answer_tokens) > max_target_len: max_target_len = len(answer_tokens)
                 answer_tokens = answer_tokens[:self.args.target_max_len-1] # -1 for <s> or </s>
-                
+
             answer_tokens_ = self.tokenizer.convert_tokens_to_ids(answer_tokens)
             target_ids = [config.bos_token_id] + answer_tokens_ # <s> ...
             target_labels = answer_tokens_ + [config.eos_token_id] # ... </s>
@@ -561,7 +565,7 @@ class Bart(nn.Module):
             target_labels += ([-100] * padding_len) # -100 is the default index to be ignored
             assert len(target_ids) == self.args.target_max_len
             assert len(target_labels) == self.args.target_max_len
-            
+
             # Get functional turns label (truncate to max_len), either only 0/1 or 0-6 modular index
             max_num_of_turns = 50
             local_max_num_of_turns = source_ids.count(config.bos_token_id)
@@ -575,7 +579,7 @@ class Bart(nn.Module):
                         func_turn_label.append(e.module_index[counter]+2)
                         counter += 1
                     else:
-                        func_turn_label.append(0)                
+                        func_turn_label.append(0)
                 assert len([i for i in func_turn_label if i!=0]) == len(e.module_index)
             elif self.args.add_functurn_loss:
                 func_turn_label = e.func_turn_label
@@ -589,7 +593,7 @@ class Bart(nn.Module):
             features.append(f)
 
             index += 1
-        
+
         print("[INFO] max_target_len", max_target_len)
         return features
 
@@ -664,7 +668,7 @@ class Bart(nn.Module):
             "source_mask": source_mask,
         }
         return item
-    
+
     def encode(self,
                source_ids,
                source_mask):
@@ -674,10 +678,10 @@ class Bart(nn.Module):
                                                    attention_mask = source_mask)
         source_reps = source_reps[0]
         return source_reps, source_mask
-    
+
     def train(self):
         self.init_seed()
-        
+
         if not os.path.exists(self.args.output_dir):
             os.makedirs(self.args.output_dir)
         elif self.args.load_path:
@@ -708,28 +712,28 @@ class Bart(nn.Module):
         logger.info("  Num steps = %d", num_train_steps)
 
         train_dataloader = self.get_train_dataloader(train_features, train_batch_size)
-        
+
         self.generator.zero_grad()
         self.generator.train()
-        
+
         num_updates = 0
         best_em = 0.0
         patience = 0
 
         f_log = open(os.path.join(self.args.output_dir, "{}.log".format(self.args.model_name.replace("/", "-"))), 'w')
-            
+
         for epoch in trange(int(self.args.num_train_epochs), desc="Epoch"):
             train_loss_tracker_gen, train_loss_tracker_func, train_loss_tracker_gp = [], [], []
             for step, batch in enumerate(tqdm(train_dataloader, desc="Iteration")):
-                
+
                 loss = 0
                 item_dict = self.get_train_batch_data(batch)
-                source_ids, source_mask  = item_dict["source_ids"], item_dict["source_mask"] 
+                source_ids, source_mask  = item_dict["source_ids"], item_dict["source_mask"]
                 target_ids, target_labels, func_labels = item_dict["target_ids"], item_dict["target_labels"], item_dict["func_label"]
-                
+
                 encoder_outputs, source_mask = self.encode(source_ids, source_mask)
                 batch_size = encoder_outputs.size(0)
-                
+
                 if self.args.add_functurn_loss or self.args.add_module_loss:
                     sent_repr_mat = []
                     turn_nums = [(item == self.generator.base_model.config.bos_token_id).sum().cpu().item() for item in source_ids]
@@ -747,7 +751,7 @@ class Bart(nn.Module):
                     loss_functurn = F.cross_entropy(prediction_logits.reshape(-1, prediction_logits.size(-1)), \
                                                     func_labels.reshape(-1), ignore_index=-1, reduction='mean')
                     loss += loss_functurn * self.args.weight_addition_loss
-                    
+
                     train_loss_tracker_func.append(loss_functurn.item())
                     if self.args.wandb and step % 50 == 0:
                         wandb.log({'avg_training_loss_functurn': np.mean(train_loss_tracker_func)})
@@ -757,21 +761,21 @@ class Bart(nn.Module):
                                          encoder_outputs = (encoder_outputs,),
                                          decoder_input_ids = target_ids,
                                          labels = target_labels)
-                
+
                 # outputs = self.generator(input_ids = source_ids,
                 #                          attention_mask = source_mask,
                 #                          decoder_input_ids = target_ids,
                 #                          labels = target_labels)
-                
+
                 loss_gen = outputs[0]
                 #encoder_outputs = outputs[2]
-                
+
                 train_loss_tracker_gen.append(loss_gen.item())
                 if self.args.wandb and step % 50 == 0:
                     wandb.log({'avg_training_loss_generation': np.mean(train_loss_tracker_gen)})
-                
+
                 loss += loss_gen
-                
+
                 if self.args.gradient_accumulation_steps > 1:
                     loss = loss / self.args.gradient_accumulation_steps
 
@@ -789,11 +793,11 @@ class Bart(nn.Module):
                     if num_updates % len(train_dataloader) == 0:  # evaluate after every epoch
                         results = self.evaluate(dev_data=dev_data, dump_pred=self.args.dump_pred)
                         em = results['rouge-1']['f']
-                        
+
                         if self.args.wandb:
                             for r in results:
                                 wandb.log({'eval_{}'.format(r): results[r]['f']})
-                        
+
                         if f_log is not None:
                             f_log.write(json.dumps(results))
                             f_log.write('num_updates: {}\n'.format(num_updates))
@@ -806,10 +810,10 @@ class Bart(nn.Module):
                         else:
                             patience += 1
                             print("[INFO] patience {}/{}".format(patience, self.args.patience))
-                
+
                 if patience > self.args.patience:
                     break
-            
+
             if patience > self.args.patience:
                 print("[INFO] Ran out of patience...")
                 break
@@ -836,11 +840,11 @@ class Bart(nn.Module):
         for bi, batch in enumerate(tqdm(eval_dataloader, desc="Generating")):
             item_dict = self.get_eval_batch_data(batch)
             IDs, example_indices, source_ids, source_mask = item_dict["ID"], item_dict["example_indices"], item_dict["source_ids"], item_dict["source_mask"]
-            
+
             with torch.no_grad():
-                
+
                 no_repeat_ngram_size = self.args.no_repeat_ngram_size
-                    
+
                 target_ids = self.generator.generate(input_ids = source_ids, attention_mask = source_mask,
                                                      num_beams = self.args.beam,
                                                      max_length = self.args.test_target_max_len,
@@ -852,9 +856,9 @@ class Bart(nn.Module):
 
                 if IDs[i] in pred.keys():
                     continue
-                
+
                 answer = self.tokenizer.decode(target_ids[i].tolist(), skip_special_tokens=True, clean_up_tokenization_spaces=False)
-                
+
                 if self.args.gen_keyphrase_summary:
                     if SUM_TOKEN in answer:
                         answer_split = answer.split(SUM_TOKEN)
@@ -864,12 +868,12 @@ class Bart(nn.Module):
                         keyphrase = " ".join(answer.strip().split(" ")[:-50])
                         print("[WARNING] No special token [{}] found in the output...".format(SUM_TOKEN))
                         # print(appr_answer)
-                    
+
                     pred_kp[IDs[i]] = keyphrase.strip()
                     pred[IDs[i]] = summary.strip()
                 else:
                     pred[IDs[i]] = answer.strip()
-            
+
         self.generator.train()
         return pred, pred_kp
 
@@ -891,6 +895,7 @@ class Bart(nn.Module):
             print("[INFO] Testing file_path:", file_path)
         else:
             dev_examples, dev_features = dev_data
+            predict = False
         
         pred, pred_kp = self.predict((dev_examples, dev_features), predict=predict)
         scores = evaluate_rouge(dev_examples, pred)
